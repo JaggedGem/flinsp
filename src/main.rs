@@ -1,8 +1,9 @@
 mod meta;
 
+use chrono::{DateTime, Local};
 use clap::Parser;
-use meta::Meta;
-use std::{fs::File, path::PathBuf};
+use meta::{EntryKind, Meta};
+use std::path;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -14,40 +15,99 @@ struct Args {
   recursive: bool,
 
   #[arg(required = true, num_args = 1..)]
-  paths: Vec<PathBuf>,
+  paths: Vec<path::PathBuf>,
 }
 
-fn process_files(files: Vec<(File, String)>) -> Vec<Meta> {
-  let mut metadata_list: Vec<Meta> = Vec::new();
+fn print_information(metadata: Meta) {
+  let is_file: bool = match metadata.kind {
+    EntryKind::File => true,
+    EntryKind::Folder => false,
+  };
 
-  for file_tuple in files {
-    let Ok(metadata) = Meta::new(&file_tuple.0, &file_tuple.1) else {
-      println!(
-        "An error occurred while trying to get the metadata for the following file: {}",
-        file_tuple.1
-      );
+  let spacing = "last modified:".len() + 2;
 
-      continue;
-    };
+  println!("{} Information", if is_file { "File" } else { "Folder" });
+  println!("-------------------------------------------");
 
-    metadata_list.push(metadata);
+  println!(
+    "{:<spacing$}{}{}",
+    "Name:",
+    &metadata.name,
+    if is_file {
+      format!(" ({}.{})", metadata.name, metadata.extension)
+    } else {
+      String::new()
+    },
+  );
+
+  if is_file {
+    println!(
+      "{:<spacing$}{}",
+      "Extension:",
+      String::from('.') + metadata.extension.as_str()
+    );
   }
 
-  metadata_list
+  println!(
+    "{:<spacing$}{} ({} Bytes)",
+    "Size:",
+    metadata.get_human_readable_size(),
+    metadata.size
+  );
+
+  if let Some(time) = metadata.last_modified {
+    let last_modified_local: DateTime<Local> = time.into();
+
+    println!(
+      "{:<spacing$}{}",
+      "Last Modified:",
+      last_modified_local.format("%Y-%m-%d %H:%M:%S")
+    );
+  }
+
+  if let Some(time) = metadata.last_accessed {
+    let last_accessed_local: DateTime<Local> = time.into();
+
+    println!(
+      "{:<spacing$}{}",
+      "Last Accessed:",
+      last_accessed_local.format("%Y-%m-%d %H:%M:%S")
+    );
+  }
+
+  if let Some(time) = metadata.created_at {
+    let created_at_local: DateTime<Local> = time.into();
+
+    println!(
+      "{:<spacing$}{}",
+      "Created At:",
+      created_at_local.format("%Y-%m-%d %H:%M:%S")
+    );
+  }
+
+  let absolute_path = match path::absolute(metadata.path.as_path()) {
+    Ok(val) => val,
+    Err(_) => metadata.path,
+  };
+
+  println!("{:<spacing$}{}", "Path:", absolute_path.display());
 }
 
 fn main() {
   let args = Args::parse();
 
-  if args.json {
-    println!("Json mode activated!");
-  }
+  for path in args.paths {
+    let Ok(metadata) = Meta::new(&path) else {
+      println!(
+        "An error occurred while trying to get the metadata for the following file: {}",
+        path.display()
+      );
 
-  if args.recursive {
-    println!("Recursive mode activated!")
-  }
+      continue;
+    };
 
-  for path in &args.paths {
-    println!("Path: {}", path.display());
+    // Print the information
+    print_information(metadata);
+    print!("\n\n")
   }
 }
