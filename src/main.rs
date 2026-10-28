@@ -3,7 +3,12 @@ mod meta;
 use chrono::{DateTime, Local};
 use clap::Parser;
 use meta::{EntryKind, Meta};
-use std::path;
+use sha2::{Digest, Sha256};
+use std::{
+  fs::File,
+  io::{self, Read},
+  path::{self, PathBuf},
+};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -18,12 +23,7 @@ struct Args {
   paths: Vec<path::PathBuf>,
 }
 
-fn print_information(metadata: Meta) {
-  let is_file: bool = match metadata.kind {
-    EntryKind::File => true,
-    EntryKind::Folder => false,
-  };
-
+fn print_information(metadata: Meta, is_file: bool, hash: Option<String>) {
   let spacing = "last modified:".len() + 2;
 
   println!("{} Information", if is_file { "File" } else { "Folder" });
@@ -91,6 +91,27 @@ fn print_information(metadata: Meta) {
   };
 
   println!("{:<spacing$}{}", "Path:", absolute_path.display());
+
+  if let Some(val) = hash {
+    println!("{:<spacing$}{}", "File Hash:", val)
+  }
+}
+
+fn hash_file(path: PathBuf) -> io::Result<String> {
+  let mut file = File::open(path)?;
+  let mut hasher = Sha256::new();
+  let mut buffer = [0; 4096]; // Read in 4KB chunks
+
+  loop {
+    let bytes_read = file.read(&mut buffer)?;
+    if bytes_read == 0 {
+      break; // End of file
+    }
+    hasher.update(&buffer[..bytes_read]);
+  }
+
+  // Finalize the hash and format as a hex string
+  Ok(hex::encode(hasher.finalize()))
 }
 
 fn main() {
@@ -106,8 +127,17 @@ fn main() {
       continue;
     };
 
+    let is_file: bool = match metadata.kind {
+      EntryKind::File => true,
+      EntryKind::Folder => false,
+    };
+
     // Print the information
-    print_information(metadata);
+    print_information(
+      metadata,
+      is_file,
+      if is_file { hash_file(path).ok() } else { None },
+    );
     print!("\n\n")
   }
 }
