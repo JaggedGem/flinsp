@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 use std::{
   fs::File,
   io::{self, Read},
-  path::{self, PathBuf},
+  path::{self, Path},
 };
 
 #[derive(Parser)]
@@ -21,6 +21,9 @@ struct Args {
 
   #[arg(required = true, num_args = 1..)]
   paths: Vec<path::PathBuf>,
+
+  #[arg(long = "include-hashes", short)]
+  include_hashes: bool,
 }
 
 fn print_information(metadata: &Meta, hash: Option<String>) {
@@ -51,14 +54,14 @@ fn print_information(metadata: &Meta, hash: Option<String>) {
     println!(
       "{:<spacing$}{}",
       "Extension:",
-      String::from('.') + metadata.extension.as_str()
+      format_args!(".{}", metadata.extension)
     );
   }
 
   println!(
     "{:<spacing$}{} ({} Bytes)",
     "Size:",
-    metadata.get_human_readable_size(),
+    metadata.human_readable_size(),
     metadata.size
   );
 
@@ -104,7 +107,7 @@ fn print_information(metadata: &Meta, hash: Option<String>) {
   }
 }
 
-fn hash_file(path: PathBuf) -> io::Result<String> {
+fn hash_file(path: &Path) -> io::Result<String> {
   let mut file = File::open(path)?;
   let mut hasher = Sha256::new();
   let mut buffer = [0; 4096]; // Read in 4KB chunks
@@ -137,8 +140,19 @@ fn main() {
     // Print the information
     print_information(
       &metadata,
-      if metadata.kind.is_file() {
-        hash_file(path).ok()
+      if metadata.kind.is_file() && args.include_hashes {
+        match hash_file(&path) {
+          Ok(val) => Some(val),
+          Err(error) => {
+            println!(
+              "An error occurred while trying to get the hash ({}): {}",
+              path.display(),
+              error
+            );
+
+            None
+          }
+        }
       } else {
         None
       },

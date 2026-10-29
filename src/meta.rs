@@ -2,7 +2,7 @@ use std::{
   ffi::OsString,
   fs::{self, FileType},
   io::Error,
-  path::PathBuf,
+  path::{Path, PathBuf},
   time::SystemTime,
 };
 
@@ -18,7 +18,7 @@ pub struct Meta {
 }
 
 impl Meta {
-  pub fn new(path: &PathBuf) -> Result<Self, Error> {
+  pub fn new(path: &Path) -> Result<Self, Error> {
     let metadata = fs::metadata(path)?;
 
     let extension = &path
@@ -42,7 +42,7 @@ impl Meta {
     })
   }
 
-  pub fn get_human_readable_size(&self) -> String {
+  pub fn human_readable_size(&self) -> String {
     const KB: u64 = 1000;
     const MB: u64 = KB * 1000;
     const GB: u64 = MB * 1000;
