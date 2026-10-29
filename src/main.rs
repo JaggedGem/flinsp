@@ -2,7 +2,7 @@ mod meta;
 
 use chrono::{DateTime, Local};
 use clap::Parser;
-use meta::{EntryKind, Meta};
+use meta::Meta;
 use sha2::{Digest, Sha256};
 use std::{
   fs::File,
@@ -23,24 +23,31 @@ struct Args {
   paths: Vec<path::PathBuf>,
 }
 
-fn print_information(metadata: Meta, is_file: bool, hash: Option<String>) {
+fn print_information(metadata: &Meta, hash: Option<String>) {
   let spacing = "last modified:".len() + 2;
 
-  println!("{} Information", if is_file { "File" } else { "Folder" });
+  println!(
+    "{} Information",
+    if metadata.kind.is_file() {
+      "File"
+    } else {
+      "Folder"
+    }
+  );
   println!("-------------------------------------------");
 
   println!(
     "{:<spacing$}{}{}",
     "Name:",
-    &metadata.name,
-    if is_file {
-      format!(" ({}.{})", metadata.name, metadata.extension)
+    &metadata.name.display(),
+    if metadata.kind.is_file() {
+      format!(" ({}.{})", metadata.name.display(), metadata.extension)
     } else {
       String::new()
     },
   );
 
-  if is_file {
+  if metadata.kind.is_file() {
     println!(
       "{:<spacing$}{}",
       "Extension:",
@@ -87,7 +94,7 @@ fn print_information(metadata: Meta, is_file: bool, hash: Option<String>) {
 
   let absolute_path = match path::absolute(metadata.path.as_path()) {
     Ok(val) => val,
-    Err(_) => metadata.path,
+    Err(_) => metadata.path.clone(),
   };
 
   println!("{:<spacing$}{}", "Path:", absolute_path.display());
@@ -127,16 +134,14 @@ fn main() {
       continue;
     };
 
-    let is_file: bool = match metadata.kind {
-      EntryKind::File => true,
-      EntryKind::Folder => false,
-    };
-
     // Print the information
     print_information(
-      metadata,
-      is_file,
-      if is_file { hash_file(path).ok() } else { None },
+      &metadata,
+      if metadata.kind.is_file() {
+        hash_file(path).ok()
+      } else {
+        None
+      },
     );
     print!("\n\n")
   }

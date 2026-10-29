@@ -1,18 +1,19 @@
-use std::{ffi::OsString, fs, io::Error, path::PathBuf, time::SystemTime};
-
-pub enum EntryKind {
-  File,
-  Folder,
-}
+use std::{
+  ffi::OsString,
+  fs::{self, FileType},
+  io::Error,
+  path::PathBuf,
+  time::SystemTime,
+};
 
 pub struct Meta {
-  pub name: String,
+  pub name: OsString,
   pub extension: String,
   pub size: u64,
   pub last_modified: Option<SystemTime>,
   pub last_accessed: Option<SystemTime>,
   pub created_at: Option<SystemTime>,
-  pub kind: EntryKind,
+  pub kind: FileType,
   pub path: PathBuf,
 }
 
@@ -28,25 +29,15 @@ impl Meta {
 
     Ok(Self {
       name: match path.file_stem() {
-        Some(val) => match OsString::from(val).into_string() {
-          Ok(str) => str,
-          Err(error) => panic!(
-            "Error transforming file name to a string: {}",
-            error.display()
-          ),
-        },
-        None => String::from(""),
+        Some(val) => val.to_owned(),
+        None => OsString::from(""),
       },
       extension: String::from(extension),
       size: metadata.len(),
       last_modified: metadata.modified().ok(),
       last_accessed: metadata.accessed().ok(),
       created_at: metadata.created().ok(),
-      kind: if metadata.is_file() {
-        EntryKind::File
-      } else {
-        EntryKind::Folder
-      },
+      kind: metadata.file_type(),
       path: path.to_owned(),
     })
   }
