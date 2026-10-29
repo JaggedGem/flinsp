@@ -5,8 +5,10 @@ use clap::Parser;
 use meta::Meta;
 use sha2::{Digest, Sha256};
 use std::{
-  fs::File,
-  io::{self, Read},
+  collections::VecDeque,
+  ffi::OsString,
+  fs::{self, File, FileType},
+  io::{self, Error, Read},
   path::{self, Path},
 };
 
@@ -124,29 +126,111 @@ fn hash_file(path: &Path) -> io::Result<String> {
   Ok(hex::encode(hasher.finalize()))
 }
 
-fn main() {
-  let args = Args::parse();
-
-  for path in args.paths {
-    let Ok(metadata) = Meta::new(&path) else {
-      println!(
-        "An error occurred while trying to get the metadata for the following file: {}",
-        path.display()
+fn process_entry(path: &Path, include_hashes: bool) -> Result<FileType, Error> {
+  let metadata = match Meta::new(path) {
+    Ok(val) => val,
+    Err(error) => {
+      eprintln!(
+        "An error occurred while trying to get the metadata for a file ({}): {}",
+        match path.file_name() {
+          Some(val) => val.to_owned(),
+          None => OsString::from(""),
+        }
+        .display(),
+        error
       );
 
-      continue;
+      return Err(error);
+    }
+  };
+
+  // Print the information
+  print_information(
+    &metadata,
+    if metadata.kind.is_file() && include_hashes {
+      match hash_file(path) {
+        Ok(val) => Some(val),
+        Err(error) => {
+          eprintln!(
+            "An error occurred while trying to get the hash ({}): {}",
+            path.display(),
+            error
+          );
+
+          None
+        }
+      }
+    } else {
+      None
+    },
+  );
+  print!("\n\n");
+
+  Ok(metadata.kind)
+}
+
+fn process_folder_recursive(path: &Path, include_hashes: bool) {
+  let entries = match match fs::read_dir(path) {
+    Ok(val) => val,
+    Err(error) => {
+      eprintln!(
+        "An error occurred while trying to read a folder ({}): {}",
+        path.display(),
+        error
+      );
+
+      return;
+    }
+  }
+  .collect::<Result<Vec<_>, _>>()
+  {
+    Ok(val) => val,
+    Err(error) => {
+      eprintln!(
+        "An error occurred while trying to read a folder ({}): {}",
+        path.display(),
+        error
+      );
+
+      return;
+    }
+  };
+
+  // entries.sort_by_key(|entry| entry.file_name());
+
+  let mut dir_queue: VecDeque<Meta> = VecDeque::new();
+
+  for entry in entries {
+    let metadata = match Meta::new(&entry.path()) {
+      Ok(val) => val,
+      Err(error) => {
+        eprintln!(
+          "An error occurred while trying to get the metadata for a file in a subfolder ({}): {}",
+          format_args!("{}/{}", entry.path().display(), entry.file_name().display()),
+          error
+        );
+
+        continue;
+      }
     };
+
+    if metadata.kind.is_dir() {
+      dir_queue.push_back(metadata);
+
+      // Process the directories at the end
+      continue;
+    }
 
     // Print the information
     print_information(
       &metadata,
-      if metadata.kind.is_file() && args.include_hashes {
-        match hash_file(&path) {
+      if metadata.kind.is_file() && include_hashes {
+        match hash_file(&metadata.path) {
           Ok(val) => Some(val),
           Err(error) => {
             println!(
               "An error occurred while trying to get the hash ({}): {}",
-              path.display(),
+              metadata.path.display(),
               error
             );
 
@@ -157,6 +241,45 @@ fn main() {
         None
       },
     );
-    print!("\n\n")
+
+    print!("\n\n");
+  }
+
+  loop {
+    if dir_queue.is_empty() {
+      break;
+    }
+
+    let metadata = match dir_queue.pop_front() {
+      Some(val) => val,
+      None => break,
+    };
+
+    // Print the information
+    print_information(&metadata, None);
+
+    print!("\n\n");
+
+    // Traverse the subfolders
+    process_folder_recursive(&metadata.path, include_hashes);
+  }
+}
+
+fn main() {
+  let mut args = Args::parse();
+
+  args.paths.sort();
+
+  for path in args.paths {
+    // Process every path provided and save their kind
+    let kind = match process_entry(&path, args.include_hashes) {
+      Ok(val) => val,
+      Err(_) => continue,
+    };
+
+    //
+    if kind.is_dir() && args.recursive {
+      process_folder_recursive(&path, args.include_hashes);
+    }
   }
 }
