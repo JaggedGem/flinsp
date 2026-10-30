@@ -33,7 +33,7 @@ fn main() {
   let mut roots = Vec::new();
 
   for path in &args.paths {
-    match Meta::new(path) {
+    match Meta::new(path, args.include_hashes) {
       Ok(metadata) => roots.push(metadata),
       Err(error) => {
         eprintln!("Failed to get metadata for {}: {}", path.display(), error);

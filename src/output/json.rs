@@ -3,7 +3,7 @@ use std::{path::PathBuf, time::SystemTime};
 use serde::{Deserialize, Serialize};
 use serde_json::Error;
 
-use crate::{hash::hash_file, meta::Meta, scanner::read_directory_entries};
+use crate::{meta::Meta, scanner::read_directory_entries};
 
 #[derive(Deserialize, Serialize)]
 enum Kind {
@@ -39,13 +39,9 @@ fn build_item(root: &Meta, include_hashes: bool, is_recursive: bool) -> Item {
       Kind::Folder
     },
     path: root.path.to_owned(),
-    hash: if include_hashes {
-      hash_file(&root.path).ok()
-    } else {
-      None
-    },
+    hash: root.hash.clone(),
     children: if root.kind.is_dir() && is_recursive {
-      let entries = read_directory_entries(&root.path);
+      let entries = read_directory_entries(&root.path, include_hashes);
 
       let mut children: Vec<Item> = Vec::new();
       for entry in entries {

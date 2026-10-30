@@ -3,7 +3,7 @@ use std::{fs, path::Path};
 use crate::meta::Meta;
 
 // Read, validate and sort directory entries.
-pub fn read_directory_entries(path: &Path) -> Vec<Meta> {
+pub fn read_directory_entries(path: &Path, include_hashes: bool) -> Vec<Meta> {
   let entries = match fs::read_dir(path) {
     Ok(entries) => entries,
     Err(error) => {
@@ -24,7 +24,7 @@ pub fn read_directory_entries(path: &Path) -> Vec<Meta> {
       }
     };
 
-    match Meta::new(&entry.path()) {
+    match Meta::new(&entry.path(), include_hashes) {
       Ok(metadata) => metadata_entries.push(metadata),
       Err(error) => {
         eprintln!(

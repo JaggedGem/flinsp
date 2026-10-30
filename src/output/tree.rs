@@ -1,6 +1,6 @@
 use chrono::{DateTime, Local};
 
-use crate::{hash::hash_file, meta::Meta, scanner::read_directory_entries};
+use crate::{meta::Meta, scanner::read_directory_entries};
 
 // One ancestor occupies exactly three terminal columns.
 fn ancestor_prefix(ancestors: &[bool]) -> String {
@@ -62,13 +62,7 @@ fn tree_spine(ancestors: &[bool]) -> String {
   format!("{}│", ancestor_prefix(ancestors))
 }
 
-fn print_information(
-  metadata: &Meta,
-  hash: Option<&str>,
-  ancestors: &[bool],
-  is_last: bool,
-  is_root: bool,
-) {
+fn print_information(metadata: &Meta, ancestors: &[bool], is_last: bool, is_root: bool) {
   let branch = branch_prefix(ancestors, is_last, is_root);
   let prefix = detail_prefix(ancestors, is_last, is_root);
   let spacing = "Last Modified:".len() + 2;
@@ -139,32 +133,9 @@ fn print_information(
 
   println!("{prefix}{:<spacing$}{}", "Path:", metadata.path.display());
 
-  if let Some(hash) = hash {
+  if let Some(hash) = &metadata.hash {
     println!("{prefix}{:<spacing$}{hash}", "File Hash:");
   }
-}
-
-fn process_entry(
-  metadata: &Meta,
-  include_hashes: bool,
-  ancestors: &[bool],
-  is_last: bool,
-  is_root: bool,
-) {
-  let hash = if metadata.kind.is_file() && include_hashes {
-    match hash_file(&metadata.path) {
-      Ok(value) => Some(value),
-      Err(error) => {
-        eprintln!("Failed to hash {}: {}", metadata.path.display(), error);
-
-        None
-      }
-    }
-  } else {
-    None
-  };
-
-  print_information(metadata, hash.as_deref(), ancestors, is_last, is_root);
 }
 
 // Render an already collected directory's children.
@@ -179,12 +150,12 @@ fn process_folder_recursive(entries: &[Meta], include_hashes: bool, ancestors: &
       println!("{}", tree_spine(ancestors));
     }
 
-    process_entry(metadata, include_hashes, ancestors, is_last, false);
+    print_information(metadata, ancestors, is_last, false);
 
     // Discover children before drawing their connector.
     // This avoids dangling vertical lines in empty folders.
     let children = if metadata.kind.is_dir() {
-      read_directory_entries(&metadata.path)
+      read_directory_entries(&metadata.path, include_hashes)
     } else {
       Vec::new()
     };
@@ -216,10 +187,10 @@ pub(crate) fn print_tree(roots: &[Meta], include_hashes: bool, is_recursive: boo
     }
 
     // Root always starts at column 0.
-    process_entry(metadata, include_hashes, &[], true, true);
+    print_information(metadata, &[], true, true);
 
     let children = if is_recursive && metadata.kind.is_dir() {
-      read_directory_entries(&metadata.path)
+      read_directory_entries(&metadata.path, include_hashes)
     } else {
       Vec::new()
     };
