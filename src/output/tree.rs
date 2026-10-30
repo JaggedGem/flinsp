@@ -137,9 +137,7 @@ fn print_information(
     );
   }
 
-  let absolute_path = std::path::absolute(&metadata.path).unwrap_or_else(|_| metadata.path.clone());
-
-  println!("{prefix}{:<spacing$}{}", "Path:", absolute_path.display());
+  println!("{prefix}{:<spacing$}{}", "Path:", metadata.path.display());
 
   if let Some(hash) = hash {
     println!("{prefix}{:<spacing$}{hash}", "File Hash:");

@@ -5,7 +5,7 @@ mod scanner;
 
 use clap::Parser;
 use meta::Meta;
-use output::tree::print_tree;
+use output::{json::print_json, tree::print_tree};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -39,6 +39,17 @@ fn main() {
         eprintln!("Failed to get metadata for {}: {}", path.display(), error);
       }
     }
+  }
+
+  if args.json {
+    match print_json(&roots, args.include_hashes, args.recursive) {
+      Ok(_) => (),
+      Err(error) => {
+        eprintln!("Failed to convert the metadata to JSON: {}", error);
+      }
+    };
+
+    return;
   }
 
   print_tree(&roots, args.include_hashes, args.recursive);

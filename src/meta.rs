@@ -2,7 +2,7 @@ use std::{
   ffi::OsString,
   fs::{self, FileType},
   io::Error,
-  path::{Path, PathBuf},
+  path::{Path, PathBuf, absolute},
   time::SystemTime,
 };
 
@@ -27,6 +27,8 @@ impl Meta {
       .unwrap_or("")
       .to_string();
 
+    let absolute_path = absolute(path).unwrap_or_else(|_| path.to_owned());
+
     Ok(Self {
       name: match path.file_stem() {
         Some(val) => val.to_owned(),
@@ -38,7 +40,7 @@ impl Meta {
       last_accessed: metadata.accessed().ok(),
       created_at: metadata.created().ok(),
       kind: metadata.file_type(),
-      path: path.to_owned(),
+      path: absolute_path,
     })
   }
 
