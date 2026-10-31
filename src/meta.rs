@@ -6,8 +6,6 @@ use std::{
   time::SystemTime,
 };
 
-use crate::hash::{hash_file, hash_folder};
-
 pub struct Meta {
   pub name: OsString,
   pub extension: String,
@@ -17,11 +15,10 @@ pub struct Meta {
   pub created_at: Option<SystemTime>,
   pub kind: FileType,
   pub path: PathBuf,
-  pub hash: Option<String>,
 }
 
 impl Meta {
-  pub fn new(path: &Path, include_hashes: bool) -> Result<Self, Error> {
+  pub fn new(path: &Path) -> Result<Self, Error> {
     let metadata = fs::metadata(path)?;
 
     let extension = &path
@@ -44,17 +41,6 @@ impl Meta {
       created_at: metadata.created().ok(),
       kind: metadata.file_type(),
       path: absolute_path,
-      hash: if include_hashes {
-        if metadata.is_file() {
-          hash_file(path).ok()
-        } else if metadata.is_dir() {
-          hash_folder(path).ok()
-        } else {
-          None
-        }
-      } else {
-        None
-      },
     })
   }
 

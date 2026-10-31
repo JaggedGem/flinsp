@@ -1,6 +1,6 @@
 use chrono::{DateTime, Local};
 
-use crate::{meta::Meta, scanner::read_directory_entries};
+use crate::scanner::Entry;
 
 // One ancestor occupies exactly three terminal columns.
 fn ancestor_prefix(ancestors: &[bool]) -> String {
@@ -62,10 +62,12 @@ fn tree_spine(ancestors: &[bool]) -> String {
   format!("{}│", ancestor_prefix(ancestors))
 }
 
-fn print_information(metadata: &Meta, ancestors: &[bool], is_last: bool, is_root: bool) {
+fn print_information(entry: &Entry, ancestors: &[bool], is_last: bool, is_root: bool) {
   let branch = branch_prefix(ancestors, is_last, is_root);
   let prefix = detail_prefix(ancestors, is_last, is_root);
   let spacing = "Last Modified:".len() + 2;
+
+  let metadata = &entry.meta;
 
   let kind = if metadata.kind.is_dir() {
     "Folder"
@@ -133,76 +135,59 @@ fn print_information(metadata: &Meta, ancestors: &[bool], is_last: bool, is_root
 
   println!("{prefix}{:<spacing$}{}", "Path:", metadata.path.display());
 
-  if let Some(hash) = &metadata.hash {
+  if let Some(hash) = &entry.hash {
     println!("{prefix}{:<spacing$}{hash}", "File Hash:");
   }
 }
 
 // Render an already collected directory's children.
-fn process_folder_recursive(entries: &[Meta], include_hashes: bool, ancestors: &[bool]) {
+fn process_folder_recursive(entries: &[Entry], is_recursive: bool, ancestors: &[bool]) {
   let total = entries.len();
 
-  for (index, metadata) in entries.iter().enumerate() {
+  for (index, entry) in entries.iter().enumerate() {
     let is_last = index + 1 == total;
 
-    // Maintain the existing tree connector between siblings.
     if index > 0 {
       println!("{}", tree_spine(ancestors));
     }
 
-    print_information(metadata, ancestors, is_last, false);
+    print_information(entry, ancestors, is_last, false);
 
-    // Discover children before drawing their connector.
-    // This avoids dangling vertical lines in empty folders.
-    let children = if metadata.kind.is_dir() {
-      read_directory_entries(&metadata.path, include_hashes)
-    } else {
-      Vec::new()
-    };
+    if let Some(children) = &entry.children {
+      if !children.is_empty() && is_recursive {
+        let mut child_ancestors = ancestors.to_vec();
 
-    if !children.is_empty() {
-      let mut child_ancestors = ancestors.to_vec();
+        child_ancestors.push(!is_last);
 
-      // If this folder isn't the final sibling,
-      // preserve its sibling connector.
-      child_ancestors.push(!is_last);
+        println!("{}", tree_spine(&child_ancestors));
 
-      // Continue the folder's metadata junction into
-      // the branches of its children.
-      println!("{}", tree_spine(&child_ancestors));
-
-      process_folder_recursive(&children, include_hashes, &child_ancestors);
+        process_folder_recursive(children, is_recursive, &child_ancestors);
+      } else if is_last {
+        println!("{}", closing_prefix(ancestors, is_last, false));
+      }
     } else if is_last {
-      // This is the final visible leaf.
-      // Close its metadata line.
       println!("{}", closing_prefix(ancestors, is_last, false));
     }
   }
 }
 
-pub(crate) fn print_tree(roots: &[Meta], include_hashes: bool, is_recursive: bool) {
-  for (index, metadata) in roots.iter().enumerate() {
+pub(crate) fn print_tree(roots: &[Entry], _include_hashes: bool, is_recursive: bool) {
+  for (index, entry) in roots.iter().enumerate() {
     if index > 0 {
       println!();
     }
 
-    // Root always starts at column 0.
-    print_information(metadata, &[], true, true);
+    print_information(entry, &[], true, true);
 
-    let children = if is_recursive && metadata.kind.is_dir() {
-      read_directory_entries(&metadata.path, include_hashes)
+    if let Some(children) = &entry.children {
+      if !children.is_empty() && is_recursive {
+        println!("│");
+
+        process_folder_recursive(children, is_recursive, &[]);
+      } else {
+        println!("{}", closing_prefix(&[], true, true));
+      }
     } else {
-      Vec::new()
-    };
-
-    if !children.is_empty() {
-      // Extend the root's vertical line to its children.
-      println!("│");
-
-      process_folder_recursive(&children, is_recursive, &[]);
-    } else {
-      // A standalone file, empty folder, or non-recursive
-      // root is also a terminal leaf.
       println!("{}", closing_prefix(&[], true, true));
     }
   }

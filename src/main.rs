@@ -4,9 +4,10 @@ mod output;
 mod scanner;
 
 use clap::Parser;
-use meta::Meta;
 use output::{json::print_json, tree::print_tree};
 use std::path::PathBuf;
+
+use crate::scanner::build_tree;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -33,16 +34,23 @@ fn main() {
   let mut roots = Vec::new();
 
   for path in &args.paths {
-    match Meta::new(path, args.include_hashes) {
-      Ok(metadata) => roots.push(metadata),
-      Err(error) => {
-        eprintln!("Failed to get metadata for {}: {}", path.display(), error);
-      }
-    }
+    roots.push(
+      match build_tree(path, args.include_hashes, args.recursive) {
+        Ok(val) => val,
+        Err(error) => {
+          eprintln!(
+            "Failed to get the entry tree for {}: {}",
+            path.display(),
+            error
+          );
+          continue;
+        }
+      },
+    );
   }
 
   if args.json {
-    match print_json(&roots, args.include_hashes, args.recursive) {
+    match print_json(&roots) {
       Ok(_) => (),
       Err(error) => {
         eprintln!("Failed to convert the metadata to JSON: {}", error);

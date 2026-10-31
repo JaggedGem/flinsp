@@ -3,7 +3,7 @@ use std::{path::PathBuf, time::SystemTime};
 use serde::{Deserialize, Serialize};
 use serde_json::Error;
 
-use crate::{meta::Meta, scanner::read_directory_entries};
+use crate::scanner::Entry;
 
 #[derive(Deserialize, Serialize)]
 enum Kind {
@@ -25,45 +25,42 @@ struct Item {
   pub children: Option<Vec<Item>>,
 }
 
-fn build_item(root: &Meta, include_hashes: bool, is_recursive: bool) -> Item {
+fn build_item(entry: &Entry) -> Item {
   Item {
-    name: root.name.to_string_lossy().to_string(),
-    extension: root.extension.to_owned(),
-    size: root.size,
-    last_modified: root.last_modified,
-    last_accessed: root.last_accessed,
-    created_at: root.created_at,
-    kind: if root.kind.is_file() {
+    name: entry.meta.name.to_string_lossy().to_string(),
+    extension: entry.meta.extension.to_owned(),
+    size: entry.meta.size,
+    last_modified: entry.meta.last_modified,
+    last_accessed: entry.meta.last_accessed,
+    created_at: entry.meta.created_at,
+    kind: if entry.meta.kind.is_file() {
       Kind::File
     } else {
       Kind::Folder
     },
-    path: root.path.to_owned(),
-    hash: root.hash.clone(),
-    children: if root.kind.is_dir() && is_recursive {
-      let entries = read_directory_entries(&root.path, include_hashes);
+    path: entry.meta.path.to_owned(),
+    hash: entry.hash.clone(),
+    children: match &entry.children {
+      Some(val) => {
+        let mut item_children: Vec<Item> = Vec::new();
 
-      let mut children: Vec<Item> = Vec::new();
-      for entry in entries {
-        children.push(build_item(&entry, include_hashes, is_recursive));
+        for child in val {
+          item_children.push(build_item(child));
+        }
+
+        Some(item_children)
       }
 
-      Some(children)
-    } else {
-      None
+      None => None,
     },
   }
 }
 
-pub(crate) fn print_json(
-  roots: &[Meta],
-  include_hashes: bool,
-  is_recursive: bool,
-) -> Result<(), Error> {
+pub(crate) fn print_json(entries: &[Entry]) -> Result<(), Error> {
   let mut items: Vec<Item> = Vec::new();
 
-  for metadata in roots {
-    let item = build_item(metadata, include_hashes, is_recursive);
+  for entry in entries {
+    let item = build_item(entry);
 
     items.push(item);
   }
