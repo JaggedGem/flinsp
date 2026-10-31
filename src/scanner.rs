@@ -44,21 +44,37 @@ pub(crate) fn build_tree(
   // Calculate parent's hash if needed
   let parent_hash: Option<String> = if include_hashes {
     let mut children_hashes: Vec<(&Path, String)> = Vec::with_capacity(parent_children.len());
+
     for child in &parent_children {
       let hash = match &child.hash {
         Some(h) => h.clone(),
         None => {
-          panic!(
+          eprintln!(
             "Failed to generate parent directory's hash because one of the child's hash was empty: {}",
             child.meta.path.display()
           );
+
+          break;
         }
       };
 
       children_hashes.push((&child.meta.path, hash));
     }
 
-    Some(hash_folder(&children_hashes)?)
+    if children_hashes.len() == parent_children.len() {
+      match hash_folder(&children_hashes) {
+        Ok(h) => Some(h),
+        Err(e) => {
+          eprintln!(
+            "Failed to generate parent directory's hash for {}: {e}",
+            meta.path.display()
+          );
+          None
+        }
+      }
+    } else {
+      None
+    }
   } else {
     None
   };
