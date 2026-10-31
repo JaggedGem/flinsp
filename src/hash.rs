@@ -58,7 +58,7 @@ pub fn hash_file(path: &Path) -> io::Result<String> {
 //   Ok(hex::encode(hasher.finalize()))
 // }
 
-pub fn hash_folder(entries: &[(&Path, String)]) -> io::Result<String> {
+pub fn hash_folder(entries: &[(&Path, &str)]) -> io::Result<String> {
   let mut hasher = Sha256::new();
 
   for entry in entries {
@@ -73,7 +73,7 @@ pub fn hash_folder(entries: &[(&Path, String)]) -> io::Result<String> {
 
     hasher.update(file_name.as_bytes());
 
-    hasher.update(&entry.1);
+    hasher.update(entry.1);
   }
 
   Ok(hex::encode(hasher.finalize()))

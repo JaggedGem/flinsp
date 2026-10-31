@@ -136,7 +136,14 @@ fn print_information(entry: &Entry, ancestors: &[bool], is_last: bool, is_root: 
   println!("{prefix}{:<spacing$}{}", "Path:", metadata.path.display());
 
   if let Some(hash) = &entry.hash {
-    println!("{prefix}{:<spacing$}{hash}", "File Hash:");
+    println!(
+      "{prefix}{:<spacing$}{hash}",
+      if metadata.kind.is_file() {
+        "File Hash:"
+      } else {
+        "Folder Hash:"
+      }
+    );
   }
 }
 

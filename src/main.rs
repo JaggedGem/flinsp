@@ -23,6 +23,9 @@ struct Args {
 
   #[arg(long = "include-hashes", short)]
   include_hashes: bool,
+
+  #[arg(long = "follow-symlinks", short)]
+  follow_symlinks: bool,
 }
 
 fn main() {
@@ -35,7 +38,12 @@ fn main() {
 
   for path in &args.paths {
     roots.push(
-      match build_tree(path, args.include_hashes, args.recursive) {
+      match build_tree(
+        path,
+        args.include_hashes,
+        args.recursive,
+        args.follow_symlinks,
+      ) {
         Ok(val) => val,
         Err(error) => {
           eprintln!(

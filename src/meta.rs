@@ -18,8 +18,17 @@ pub struct Meta {
 }
 
 impl Meta {
-  pub fn new(path: &Path) -> Result<Self, Error> {
-    let metadata = fs::metadata(path)?;
+  pub fn new(path: &Path, follow_symlinks: bool) -> Result<Self, Error> {
+    let metadata = if path.is_symlink() {
+      if follow_symlinks {
+        // todo: implement functionality
+        fs::metadata(path)?
+      } else {
+        fs::symlink_metadata(path)?
+      }
+    } else {
+      fs::metadata(path)?
+    };
 
     let extension = &path
       .extension()
