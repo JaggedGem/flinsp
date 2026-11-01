@@ -52,9 +52,8 @@ pub(crate) fn build_tree(
   path: &Path,
   include_hashes: bool,
   is_recursive: bool,
-  follow_symlinks: bool,
 ) -> io::Result<Entry> {
-  let meta = Meta::new(path, follow_symlinks)?;
+  let meta = Meta::new(path)?;
 
   if meta.kind.is_file() {
     return Ok(Entry {
@@ -68,7 +67,7 @@ pub(crate) fn build_tree(
     });
   }
 
-  let entries = read_directory_entries(path, follow_symlinks);
+  let entries = read_directory_entries(path);
 
   let parent_children: Option<Vec<Entry>> = match include_hashes || is_recursive {
     true => {
@@ -76,7 +75,7 @@ pub(crate) fn build_tree(
 
       // Populate the children entries
       for child in entries {
-        let child_node = build_tree(&child.path, include_hashes, is_recursive, follow_symlinks)?;
+        let child_node = build_tree(&child.path, include_hashes, is_recursive)?;
 
         parent_children.push(child_node);
       }
@@ -112,7 +111,7 @@ pub(crate) fn build_tree(
 }
 
 // Read, validate and sort directory entries.
-fn read_directory_entries(path: &Path, follow_symlinks: bool) -> Vec<Meta> {
+fn read_directory_entries(path: &Path) -> Vec<Meta> {
   let entries = match fs::read_dir(path) {
     Ok(entries) => entries,
     Err(error) => {
@@ -133,7 +132,7 @@ fn read_directory_entries(path: &Path, follow_symlinks: bool) -> Vec<Meta> {
       }
     };
 
-    match Meta::new(&entry.path(), follow_symlinks) {
+    match Meta::new(&entry.path()) {
       Ok(metadata) => metadata_entries.push(metadata),
       Err(error) => {
         eprintln!(
